@@ -44,9 +44,12 @@ Route::group(['middleware' => ['auth:api', 'role:admin']], function () {
     Route::get('view-role', [UserRoleController::class, 'viewRole']);
     //User Routes.
     Route::post('role', [UserRoleController::class, 'createRole']);
-    Route::post('permition', [UserRoleController::class, 'assignPermitionWithName']);
-    Route::post('roleHavePermition', [UserRoleController::class, 'roleHavePermition']);
+    Route::post('permissions', [UserRoleController::class, 'assignPermissionsWithName']);
+    Route::post('roleHavePermissions', [UserRoleController::class, 'roleHavePermissions']);
+    Route::post('admin-register', [UserRoleController::class, 'register']);
+
 //   Route::post('user-have-permition', [UserRoleController::class, 'userHavePermition']);
+Route::middleware('auth:api')->get('/user/roles-permissions', [UserRoleController::class, 'getUserRolesAndPermissions']);
 });
 
 

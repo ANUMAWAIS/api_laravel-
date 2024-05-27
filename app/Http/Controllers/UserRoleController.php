@@ -8,9 +8,45 @@ use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\Auth;
+
 
 class UserRoleController extends Controller
 {
+    public function register(Request $request)
+    {
+        // Validate the request data
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|max:255', 
+            'email' => 'required|email|unique:users', 
+            'password' => 'required|min:8', 
+            'role_id' => 'required|exists:roles,id',
+        ]);
+    
+        // Check if the validation fails
+        if ($validator->fails()) {
+            // Return a JSON response with the validation errors and a 422 status code
+            return response()->json(['error' => 'Validation Error.', 'message' => $validator->errors()], 422);
+        }
+    
+        // Create the new user
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email, 
+            'password' => bcrypt($request->password), 
+        ]);
+    
+        // Assign the specified role to the user using role_id
+        $role = Role::findById($request->role_id); 
+        $user->assignRole($role); // uses Spatie's built-in method to assign a role to a user.
+    
+        // Create a token for the user (assuming Passport or Sanctum is used for API authentication)
+        $success['token'] =  $user->createToken('MyApp')->accessToken; // Generate an API token for the user
+        $success['name'] =  $user->name; 
+    
+     
+        return response()->json(['message' => 'User registered successfully', 'user' => $user, 'token' => $success['token']], 201);
+    }
 
     //Assign role to user
     public function assignRole(Request $request)
@@ -19,18 +55,15 @@ class UserRoleController extends Controller
             'role_name' => 'required',
             'user_id' => 'required',
         ]);
-
         if ($validator->fails()) {
             return response()->json('Validation Error.', $validator->errors());
         }
-
         $user = User::find($request->user_id);
 
         //Check user is exist or not.
         if ($user !== null) {
             //Check Persmission is exist or not.
             $isRoleExist = Role::findByName($request->role_name);
-
             if ($isRoleExist) {
                 $isRoleExist->users()->attach($user);
                 return response()->json("Role assigned successfully!");
@@ -91,7 +124,7 @@ class UserRoleController extends Controller
         }
     }
     //assign permitions
-    public function assignPermitionWithName(Request $request)
+    public function assignPermissionsWithName(Request $request)
     {
         // dd($request->all());
         // Validate the request
@@ -130,7 +163,7 @@ class UserRoleController extends Controller
     }
 
     // userHavePermition 
-    public function roleHavePermition(Request $request)
+    public function roleHavePermissions(Request $request)
     {
         // dd($request->toArray());
         // Validate the request
@@ -140,12 +173,11 @@ class UserRoleController extends Controller
         ]);
         if ($validator->fails()) {
             return response()->json(['error' => 'Validation Error.', 'message' => $validator->errors()], 422);
-        }
-        else {
+        } else {
             // Validation passed, print success message and values
             $roleId = $request->role_id;
             $permissionIds = $request->permission_id;
-        
+
             echo "Validation successful! Role ID: $roleId, Permission IDs: " . implode(', ', $permissionIds);
         }
         try {
@@ -155,16 +187,43 @@ class UserRoleController extends Controller
             // dd($role);   
             // If permission_id is not an array, convert it to an array
             // $permissionIds = is_array($request->permission_ids) ? $request->permission_ids : [$request->permission_ids];
-            
+
             //  dd($permissionIds);
 
             // Attach the permissions to the role
             $permissionIds = Permission::whereIn('id', $permissionIds)->get();
             $role->syncPermissions($permissionIds);
-    
+
             return response()->json(['message' => 'Permissions assigned successfully.', 'role' => $role, 'permissions' => $permissionIds]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+
+
+    public function getUserRolesAndPermissions()
+    {
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Get the roles assigned to the user
+        $roles = $user->getRoleNames();
+        
+        // Get the permissions directly assigned to the user
+        // $permissions = $user->getDirectPermissions()->pluck('name');
+
+        // Get the permissions inherited from roles
+         $rolePermissions = $user->getAllPermissions()->pluck('name');
+
+        // Return the roles and permissions as JSON response
+        return response()->json([
+            'roles' => $roles,
+            // 'permissions' => $permissions,
+            'role_permissions' => $rolePermissions,
+        ]);
+        return response()->json([
+            'permissions' => $permissions,
+        ]);
     }
 }

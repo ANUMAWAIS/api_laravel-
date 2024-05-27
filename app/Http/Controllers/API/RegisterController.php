@@ -116,19 +116,26 @@ class RegisterController extends BaseController
     {
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
-            // Fetch user's role
-            // dd($user->getRoleNames());
-            $role = $user->getRoleNames()->first();
+            // Get the roles assigned to the user
+            $userData = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ];
+            $roles = $user->getRoleNames();
+            $rolePermissions = $user->getAllPermissions();
 
             // Create an access token
             $accessToken = $user->createToken('MyApp')->accessToken;
 
-            // Prepare the success response with tokens, user information, and role
+            // Prepare the success response with tokens, user information, roles, and permissions
             $data['token'] = $accessToken;
-            $data['user'] = $user;
-            $data['role'] = $role;
+            $data['user'] = $userData;
+            $data['roles'] = $roles;
+            $data['rolePermissions'] = $rolePermissions;
 
-            return $this->sendResponse($data, 'User login successfully.');
+
+            return $this->sendResponse('User login successfully.', $data);
         } else {
             return $this->sendError('Unauthorized.', ['error' => 'Unauthorized']);
         }
